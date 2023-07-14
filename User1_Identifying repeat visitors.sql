@@ -8,12 +8,12 @@
 
 CREATE TEMPORARY TABLE sessions_w_repeats
 SELECT
-	new_sessions.user_id,
+    new_sessions.user_id,
     new_sessions.website_session_id AS new_session_id,
     website_sessions.website_session_id AS repeat_session_id
 FROM(
-SELECT
-	user_id,
+SELECT	
+    user_id,
     website_session_id
 FROM website_sessions
 WHERE created_at < '2014-11-01' -- the date of the request
@@ -32,11 +32,11 @@ WHERE created_at < '2014-11-01' -- the date of the request
 SELECT * FROM sessions_w_repeats;
 
 SELECT
-	repeat_sessions,
+    repeat_sessions,
     COUNT(DISTINCT user_id) AS users
 FROM(
 SELECT
-	user_id,
+    user_id,
     COUNT(DISTINCT new_session_id) AS new_sessions,
     COUNT(DISTINCT repeat_session_id) AS repeat_sessions
 FROM sessions_w_repeats
