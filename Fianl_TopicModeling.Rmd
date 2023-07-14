@@ -1,0 +1,306 @@
+
+
+
+```{r}
+library(multilinguer)
+install_jdk()
+
+remotes::install_github('haven-jeon/KoNLP', upgrade = "never", INSTALL_opts=c("-no-multiarch"))
+library(KoNLP)
+```
+
+```{r}
+useNIADic()
+```
+
+#단어 추가
+```{r}
+mergeUserDic(data.frame(c("이루다"), "ncn"))
+```
+
+
+```{r}
+library(tidyverse)
+```
+
+
+```{r}
+library(tidytext)
+library(tm)
+```
+
+
+```{r}
+library(httr)
+library(rvest)
+```
+
+
+웹 크롤링
+```{r}
+url1 <- 'https://search.naver.com/search.naver?where=news&sm=tab_jum&query='
+keyword <- '인공지능+윤리'
+url2 <- '&sort=0&photo=0&field=0&pd=3'
+start_date <- '&ds=2020.01.01'
+end_date <- '&de=2020.12.31'
+url3 <- '&cluster_rank=55&mynews=0&office_type=0&office_section_code=0&news_office_checked=&nso=so:r,p:'
+start_date2 <- 'from20200101'
+end_date2 <- 'to20201231'
+url4 <- ',a:all&start='
+
+```
+
+
+크롤링 결과 저장
+```{r}
+result <- list()
+n=1
+index <- seq(1, 5000, by=10)
+for (i in index) {
+  url = paste0(url1, keyword, url2, start_date, end_date, url3, start_date2, end_date2, url4, i)
+  get_url = GET(url)
+  
+  title <- get_url %>%
+    read_html(encoding="UTF-8") %>%
+    html_nodes('.news_area') %>%
+    html_nodes('a') %>%
+    html_attr('title')
+  
+  title <- title[complete.cases(title)]
+  
+  result[[n]] <- title
+  n=n+1
+}
+
+result <- unlist(result)
+head(result)
+```
+
+```{r}
+write.csv(result, "ethics_2020.csv")
+```
+
+
+
+데이터 가져오기
+```{r}
+table <- read.csv("ethics_2020_1.csv")
+```
+
+정규표현식
+```{r}
+result_a <- table %>%
+#  mutate(document = gsub("[[:cntrl:]]", "", document)) %>%
+  mutate(document = gsub("[[:punct:]]", "", document))
+```
+
+
+한글형태소 분석
+```{r}
+result_a <- result_a %>%
+  unnest_tokens(input = document,
+                output = morp,
+                token = SimplePos09) %>%
+  filter(str_detect(morp, "/n")) %>%
+  mutate(words = str_remove(morp, "/.*$")) %>%
+  filter(str_length(words) >= 2)
+```
+
+용어 정리
+#단어 삭제
+```{r}
+st_words <- tibble(words = c("2019", "2019년", "2020", "2020년", "2021", "2021년", "2022", "2022년", "2023년", "오늘", "이후", "무엇"))
+result_a <- result_a %>%
+  anti_join(st_words, by = "words")
+```
+
+
+#단어 정리
+```{r}
+
+result_a <- result_a %>%
+  mutate(words = gsub("인공지능ai", "인공지능", words)) %>%
+  mutate(words = gsub("ai", "인공지능", words)) %>%
+  mutate(words = gsub("文대통령", "대통령", words)) %>%
+  mutate(words = gsub("필요한", "필요", words)) %>%
+  mutate(words = gsub("사람", "인간", words)) 
+
+```
+
+
+```{r}
+library(wordcloud2)
+
+st_words <- tibble(words = c("2019", "2019년", "2020", "2020년", "2021", "2021년", "2022", "2022년", "2023년", "오늘", "이후", "무엇", "인공지능"))
+result_WC <- result_a %>%
+  anti_join(st_words, by = "words")
+```
+
+```{r}
+
+result_WC %>%
+  count(words, sort = TRUE) %>%
+  slice(1:80) %>%
+  wordcloud2(size = 0.65, shape = 'circle') # if you want filter your words
+
+```
+
+
+```{r}
+
+tf_idf <- result_a %>%
+  count(No, words, sort = T) %>%
+  bind_tf_idf(words, No, n)
+
+```
+
+단어 통합
+```{r}
+real_tf_idf <- tf_idf %>%
+  group_by(words) %>%
+  summarise(n = sum(n, na.words = T),
+            tf_idf = sum(tf_idf, na.words = T)) %>%
+  arrange(desc(n)) %>%
+  ungroup
+```
+
+단어빈도(n) 그래프
+```{r}
+real_tf_idf %>%
+  mutate(words = reorder(words, n)) %>%
+  filter(n > 50) %>%
+  ggplot(mapping = aes(x = n, y = words)) +
+  geom_col()
+  
+```
+
+```{r}
+p_tf_idf <- real_tf_idf %>%
+  mutate(words = reorder(words, tf_idf)) %>%
+  slice_max(tf_idf, n = 20) 
+```
+
+
+tf-idf 그래프
+```{r}
+real_tf_idf %>%
+  mutate(words = reorder(words, tf_idf)) %>%
+  slice_max(tf_idf, n = 20) %>%
+  ggplot(mapping = aes(x = tf_idf, y = words)) +
+  geom_col()
+
+```
+
+
+단어-문서 행렬
+#tdm
+```{r}
+tdm <- tf_idf %>%
+  cast_tdm(term = words,
+           document = No,
+           value = n)
+
+
+tdm_tf_idf <- tf_idf %>%
+  cast_tdm(term = words,
+           document = No,
+           value = tf_idf)
+
+```
+
+#dtm
+```{r}
+dtm <- tf_idf %>%
+  cast_dtm(term = words,
+           document = No,
+           value = n)
+
+
+dtm_tf_idf <- tf_idf %>%
+  cast_dtm(term = words,
+           document = No,
+           value = tf_idf)
+
+```
+
+
+
+#패키지 설치
+```{r}
+#library(jsonlite)
+#library(BiocManager)
+#library(slam)
+library(topicmodels)
+library(lda)
+#library(ggplot2)
+#library(textmineR)
+library(ldatuning)
+library(LDAvis)
+#library(Rmpfr)
+```
+
+
+```{r}
+tn<-FindTopicsNumber(dtm = dtm , topics = seq(from = 1, to = 30, by = 1), 
+                           metrics = c("Griffiths2004", "CaoJuan2009", "Arun2010", "Deveaud2014"),
+                           method = "Gibbs",
+                           control = list(seed = 123),
+                           mc.cores = NA,
+                           verbose = F)
+
+FindTopicsNumber_plot(tn)
+
+```
+
+
+```{r}
+install.packages("furrr")
+```
+
+
+
+```{r}
+library(furrr)
+
+topics <- c(2:15)
+
+try_lda <- topics %>%
+  future_map(LDA, x = dtm, control = list(seed = 1234))
+
+try_lda_perplx <- tibble(k = topics, 
+                         perplex = map_dbl(try_lda, perplexity))
+
+try_lda_perplx %>%
+  ggplot(mapping = aes(x = k,
+                       y = perplex)) +
+  geom_point() +
+  geom_line()
+  
+```
+
+#topic -> word
+```{r}
+try_lda_6 <- LDA(dtm, k = 5, control = list(seed=1234))
+
+topic_6 <- try_lda_6 %>%
+  tidy(matrix = "beta")
+
+topic_terms <- topic_6 %>%
+  group_by(topic) %>%
+  slice_max(beta, n = 10) %>%
+  ungroup() %>%
+  arrange(topic, -beta)
+
+topic_terms %>%
+  mutate(term = reorder_within(term, beta, topic)) %>%
+  ggplot(mapping = aes(x = beta,
+                       y = term,
+                       fill = factor(topic))) +
+  geom_col(show.legend = F) +
+  facet_wrap(~ topic, scales = "free") +
+  scale_y_reordered()
+```
+
+
+
+
