@@ -1,7 +1,7 @@
 USE mavenfuzzyfactory
 
 SELECT
-	YEAR(website_sessions.created_at) AS yr,
+    YEAR(website_sessions.created_at) AS yr,
     MONTH(website_sessions.created_at) AS mo,
     COUNT(DISTINCT website_sessions.website_session_id) AS sessions,
     COUNT(DISTINCT orders.order_id) AS orders
@@ -13,7 +13,7 @@ GROUP BY 1, 2;
 
 
 SELECT
-	YEAR(website_sessions.created_at) AS yr,
+    YEAR(website_sessions.created_at) AS yr,
     WEEK(website_sessions.created_at) AS WK,
     MIN(DATE(website_sessions.created_at)) AS week_start,
     COUNT(DISTINCT website_sessions.website_session_id) AS sessions,
@@ -26,7 +26,7 @@ GROUP BY 1, 2;
 
 
 SELECT 
-	hr,
+    hr,
     ROUND(AVG(website_sessions),1) AS avg_sessions,
     ROUND(AVG(CASE WHEN wkday = 0 THEN website_sessions ELSE NULL END),1) AS mon,
     ROUND(AVG(CASE WHEN wkday = 1 THEN website_sessions ELSE NULL END),1) AS tues,
@@ -37,7 +37,7 @@ SELECT
     ROUND(AVG(CASE WHEN wkday = 6 THEN website_sessions ELSE NULL END),1) AS sun
 FROM(
 SELECT
-	DATE(created_at) AS created_date,
+    DATE(created_at) AS created_date,
     WEEKDAY(created_at) AS wkday,
     HOUR(created_at) AS hr,
     COUNT(DISTINCT website_session_id) AS website_sessions
