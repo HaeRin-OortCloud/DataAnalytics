@@ -10,14 +10,14 @@ USE mavenfuzzyfactory
 
 CREATE TEMPORARY TABLE sessions_w_repeats_for_time_diff
 SELECT
-	new_sessions.user_id,
+    new_sessions.user_id,
     new_sessions.website_session_id AS new_session_id,
     new_sessions.created_at AS new_session_created_at,
     website_sessions.website_session_id AS repeat_session_id,
     website_sessions.created_at AS repeat_session_created_at
 FROM(
 SELECT
-	user_id,
+    user_id,
     website_session_id,
     created_at
 FROM website_sessions
@@ -36,11 +36,11 @@ WHERE created_at < '2014-11-03' -- the date of the request
 
 CREATE TEMPORARY TABLE users_first_to_second
 SELECT
-	user_id,
+    user_id,
     DATEDIFF(second_session_created_at, new_session_created_at) AS days_first_to_second_session
 FROM(
 SELECT
-	user_id,
+    user_id,
     new_session_id,
     new_session_created_at,
     MIN(repeat_session_id) AS second_session_id,
@@ -54,7 +54,7 @@ GROUP BY 1, 2, 3
 SELECT * FROM users_first_to_second;
 
 SELECT
-	AVG(days_first_to_second_session) AS avg_days_first_to_second,
+    AVG(days_first_to_second_session) AS avg_days_first_to_second,
     MIN(days_first_to_second_session) AS min_days_first_to_second,
     MAX(days_first_to_second_session) AS max_days_first_to_second
 FROM users_first_to_second
